@@ -1,0 +1,148 @@
+<html>
+<head>
+  <meta name="description" content="DevLab: Configure a popup">
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Map with Arcgis</title>
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+  <link rel="stylesheet" href="https://js.arcgis.com/4.13/esri/css/main.css">
+  <script src="https://js.arcgis.com/4.13/"></script>
+</head>
+
+<script>
+  require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/widgets/Locate",
+      "esri/widgets/Track",
+      "esri/Graphic",
+      "esri/widgets/Compass", 
+      "esri/widgets/Search",
+      "esri/tasks/Locator"
+    ],
+    function(Map, MapView, Locate, Track, Graphic,Compass, Search, Locator) {
+
+      var map = new Map({
+        basemap: "streets-navigation-vector"
+      });
+
+      var view = new MapView({
+        container: "viewDiv",
+        map: map,
+        center: [-40, 28],
+        zoom: 4
+      });
+      var search = new Search({
+        view: view
+      });
+      var compass = new Compass({
+        view: view
+      });
+      var track = new Track({
+        view: view,
+        graphic: new Graphic({
+          symbol: {
+            type: "simple-marker",
+            size: "12px",
+            color: "red",
+            outline: {
+              color: "#b08223",
+              width: "1.8"
+            }
+          }
+        }),
+        useHeadingEnabled: false
+      });
+      view.ui.add(track, "top-left");
+      view.ui.add(compass, "top-left");
+      view.ui.add(search, "top-right"); 
+
+      var locator = new Locator({
+        url:  "http://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer"
+      });
+          
+      var places = ["Cinema", "Gas station", "Food", "Hotel", "School"];
+      
+      var select = document.createElement("select","");
+       select.setAttribute("class", "esri-widget esri-select");
+       select.setAttribute("style", "width: 175px; font-family: Avenir Next W00; font-size: 1em");
+      places.forEach(function(p){
+        var option = document.createElement("option");
+        option.value = p;
+        option.innerHTML = p;
+        select.appendChild(option);
+      });
+      
+      view.ui.add(select, "top-right");
+      
+      var locator = new Locator({
+         url: "http://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer"
+      });
+  
+      
+      function findPlaces(category, pt) {
+        locator.addressToLocations({
+          location: pt,
+          categories: [category],
+          maxLocations: 15,
+          outFields: ["Place_addr", "PlaceName"]
+        })
+        .then(function(results) {
+          view.popup.close();
+          view.graphics.removeAll();
+          results.forEach(function(result){
+            view.graphics.add(
+              new Graphic({
+                attributes: result.attributes,
+                geometry: result.location,
+                symbol: {
+                 type: "simple-marker",
+                 color: "#e003",
+                 size: "12px",
+                 outline: {
+                   color: "#ffffff",
+                   width: "2px"
+                 }
+                },
+                popupTemplate: {
+                  title: "{PlaceName}",
+                  content: "{Place_addr}"
+                }
+             }));
+          });
+        });
+      }
+      
+      findPlaces(select.value, view.center);
+
+      select.addEventListener('change', function (event) {
+        findPlaces(event.target.value, view.center);
+      });
+  
+      view.on("click", function(event){
+        view.hitTest(event.screenPoint)
+          .then(function(response){
+            if (response.results.length < 2) { 
+      findPlaces(select.options[select.selectedIndex].text, event.mapPoint);
+            }
+        })
+      });
+  
+    });
+  </script>
+</head>
+
+<body>
+  <div id="viewDiv"></div>
+</body>
+
+</html>
